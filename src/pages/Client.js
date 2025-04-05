@@ -108,8 +108,7 @@ export default function Client() {
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
       fetchFiltered();
-    }, 400); // biraz gecikmeli filtre (debounce gibi)
-
+    }, 400);
     return () => clearTimeout(delayDebounce);
   }, [filter]);
 
@@ -258,10 +257,20 @@ export default function Client() {
           <li key={item.clientId} className="bg-white rounded shadow">
             {/* Client Row */}
             <div
-              onClick={() =>
+              onClick={() =>{
                 setSelectedClient(
                   selectedClient?.clientId === item.clientId ? null : item
                 )
+                    setEditing(item);
+                    setForm({
+                      clientName: item.clientName,
+                      clientSurname: item.clientSurname,
+                      clientTelNo: item.clientTelNo,
+                      clientAdres: item.clientAdres,
+                      clientRequestMilk: item.clientRequestMilk,
+                      clientDeliverMilk: item.clientDeliverMilk,
+                      clientPrice: item.clientPrice,
+                    });}
               }
               className={`cursor-pointer p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
                 selectedClient?.clientId === item.clientId
@@ -306,7 +315,7 @@ export default function Client() {
                   }}
                   className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
                 >
-                  Düzenle
+                  Güncelle
                 </button>
                 <button
                   onClick={(e) => {
