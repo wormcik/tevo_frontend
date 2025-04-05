@@ -16,7 +16,7 @@ export default function Navbar() {
         Main
       </Link>
       <Link to="/page1" className={navLinkClass('/page1')}>
-        Page 1
+        Müşteriler
       </Link>
     </nav>
   );
