@@ -13,7 +13,7 @@ function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<Main />} />
-        <Route path="/page1" element={<Client />} />
+        <Route path="/musteri" element={<Client />} />
       </Routes>
     </Router>
     </>

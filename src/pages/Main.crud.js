@@ -6,3 +6,14 @@ export const clientGet = () => axios.get(`${API_BASE_CLIENT}/GetAll`);
 export const clientAdd = (item) => axios.post(`${API_BASE_CLIENT}/Add`, item);
 export const clientDelete = (id) => axios.delete(`${API_BASE_CLIENT}/Delete/${id}`);
 export const clientUpdate = (item) => axios.put(`${API_BASE_CLIENT}/Update`, item);
+export const clientFilter = (filters) => {
+    const query = new URLSearchParams({
+      name: filters.clientName || '',
+      surname: filters.clientSurname || '',
+      tel: filters.clientTelNo || '',
+      adres: filters.clientAdres || '',
+    }).toString();
+  
+    return axios.get(`${API_BASE_CLIENT}/Filter?${query}`);
+  };
+  

@@ -15,7 +15,7 @@ export default function Navbar() {
       <Link to="" className={navLinkClass('')}>
         AnaSayfa
       </Link>
-      <Link to="/page1" className={navLinkClass('/page1')}>
+      <Link to="/musteri" className={navLinkClass('/musteri')}>
         Müşteriler
       </Link>
     </nav>
