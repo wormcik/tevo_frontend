@@ -12,8 +12,8 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white shadow p-4 flex justify-center gap-4 sticky top-0 z-10">
-      <Link to="/main" className={navLinkClass('/main')}>
-        Main
+      <Link to="" className={navLinkClass('')}>
+        AnaSayfa
       </Link>
       <Link to="/page1" className={navLinkClass('/page1')}>
         Müşteriler
