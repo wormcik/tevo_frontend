@@ -264,6 +264,9 @@ export default function Client() {
                       clientSurname: item.clientSurname,
                       clientTelNo: item.clientTelNo,
                       clientAdres: item.clientAdres,
+                      clientRequestMilk: item.clientRequestMilk,
+                      clientDeliverMilk: item.clientDeliverMilk,
+                      clientPrice: item.clientPrice,
                     });
                   }}
                   className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded"
