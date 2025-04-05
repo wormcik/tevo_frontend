@@ -282,7 +282,7 @@ export default function Client() {
                 <p className="font-bold text-lg text-gray-800">
                   {item.clientName} {item.clientSurname}
                 </p>
-                <div className="flex items-center gap-2 text-gray-600 text-sm">
+                {item.clientTelNo && <div className="flex items-center gap-2 text-gray-600 text-sm">
                   <span>📞 {item.clientTelNo}</span>
                   <button
                     onClick={(e) => {
@@ -294,7 +294,7 @@ export default function Client() {
                   >
                     Kopyala
                   </button>
-                </div>
+                </div>}
                 <p className="text-gray-600 text-sm">🏠 {item.clientAdres}</p>
               </div>
       
