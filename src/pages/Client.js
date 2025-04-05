@@ -1,8 +1,33 @@
 import { useEffect, useState } from 'react';
 import { clientFilter, clientAdd, clientUpdate, clientDelete } from './Main.crud';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 export default function Client() {
+
+  const exportToExcel = () => {
+    const exportData = data.map(item => ({
+      Ad: item.clientName,
+      Soyad: item.clientSurname,
+      Telefon: item.clientTelNo,
+      Adres: item.clientAdres,
+      IstenenSüt: item.clientRequestMilk,
+      TeslimEdilenSüt: item.clientDeliverMilk,
+      Tutar: item.clientPrice,
+    }));
+  
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Müşteriler');
+  
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+    saveAs(blob, 'musteriler.xlsx');
+  
+    toast.success('Excel dosyası indirildi!');
+  };
+  
   const [data, setData] = useState([]);
   const [form, setForm] = useState({
     clientName: '',
@@ -90,7 +115,17 @@ export default function Client() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
-      <h2 className="text-3xl font-bold text-blue-600 mb-6 text-center">📇 Müşteri Yönetimi</h2>
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+      <h2 className="text-3xl font-bold text-blue-600 text-center sm:text-left mb-4 sm:mb-0">
+        📇 Müşteri Yönetimi
+      </h2>
+      <button
+    onClick={exportToExcel}
+    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow"
+  >
+    📥 Excel İndir
+  </button>
+</div>
 
       {/* FILTER */}
       <h4 className="text-xl font-semibold text-gray-700 mb-2">🔎 Filtrele</h4>
@@ -331,3 +366,4 @@ export default function Client() {
     </div>
   );
 }
+
