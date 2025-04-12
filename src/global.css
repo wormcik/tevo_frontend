@@ -8,3 +8,15 @@
 .input {
   @apply border border-gray-300 px-4 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-400;
 }
+.btn-blue {
+  @apply bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700;
+}
+.btn-green {
+  @apply bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700;
+}
+.btn-red {
+  @apply bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600;
+}
+.btn-purple {
+  @apply bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700;
+}
