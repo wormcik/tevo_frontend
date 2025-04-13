@@ -27,6 +27,11 @@ export default function Menu(props) {
       roles: ["Admin", "Buyer"],
     },
     {
+      title: "🖋️ Manuel Talep",
+      route: "/manuelTalepOlustur",
+      roles: ["Admin", "Seller"],
+    },
+    {
       title: "✅ Talep Karşıla",
       route: "/talepKarsila",
       roles: ["Admin", "Seller"],
@@ -37,8 +42,13 @@ export default function Menu(props) {
       roles: ["Admin", "Seller"],
     },
     {
-      title: "📊 Grafikler",
-      route: "/graph",
+      title: "📦 Ürün Yönetimi",
+      route: "/product",
+      roles: ["Admin", "Seller"],
+    },
+    {
+      title: "📊 İstatistikler",
+      route: "/statics",
       roles: ["Admin", "Seller"],
     },
     {
@@ -54,7 +64,6 @@ export default function Menu(props) {
     <div className="min-h-screen bg-gradient-to-br from-pink-50 to-blue-100 flex flex-col items-center justify-center p-6 relative">
       <h1 className="text-3xl font-bold text-blue-700 mb-8">🚀 Menü</h1>
 
-      {/* Bilgilendirme Butonu */}
       <button
         onClick={() => setShowModal(true)}
         className="absolute top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 shadow"
@@ -62,7 +71,6 @@ export default function Menu(props) {
         ℹ️ Bilgilendirme
       </button>
 
-      {/* Menü Butonları */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
         {buttons
           .filter((btn) => btn.roles.includes(role))
@@ -77,7 +85,6 @@ export default function Menu(props) {
           ))}
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">

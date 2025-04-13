@@ -7,6 +7,7 @@ const API_BASE_AUTH = `${BASE_URL}/api/v1/tevo-service/Auth`;
 const API_BASE_USER = `${BASE_URL}/api/v1/tevo-service/User`;
 const API_BASE_DEMAND = `${BASE_URL}/api/v1/tevo-service/Demand`;
 const API_BASE_PROFILE = `${BASE_URL}/api/v1/tevo-service/Profile`;
+const API_BASE_PRODUCT = `${BASE_URL}/api/v1/tevo-service/Product`;
 
 // 🔹 Client
 export const clientGet = () => axios.get(`${API_BASE_CLIENT}/GetAll`);
@@ -54,10 +55,18 @@ export const getDemandsForSeller = (userId) =>
   axios.get(`${API_BASE_DEMAND}/GetForSeller?userId=${userId}`);
 export const updateDemandBySeller = (payload) =>
   axios.put(`${API_BASE_DEMAND}/UpdateBySeller`, payload);
+export const createManualDemand = (payload) =>
+  axios.post(`${API_BASE_DEMAND}/AddManually`, payload);
 
 // 🔹 Profile
 export const getUserProfile = (userId) =>
   axios.get(`${API_BASE_PROFILE}/GetProfile?userId=${userId}`);
-
 export const updateProfile = (data) =>
   axios.put(`${API_BASE_PROFILE}/UpdateProfile`, data);
+
+// 🔹 Product
+export const getAllProducts = () => axios.get(`${API_BASE_PRODUCT}/GetAll`);
+export const addProduct = (data) => axios.post(`${API_BASE_PRODUCT}/Add`, data);
+export const deleteProduct = (data) =>
+  axios.post(`${API_BASE_PRODUCT}/Delete`, data);
+

@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import {
-  createDemand,
+  createManualDemand,
   getAllUsers,
   getUserProfile,
   getAllProducts,
 } from "./Main.crud";
 import toast from "react-hot-toast";
 
-export default function DemandCreate() {
+export default function ManuelDemandCreate() {
   const [form, setForm] = useState({
+    recipientUserId: "",
     demanded: "",
-    delivererUserId: "",
+    price: "",
     currency: "₺",
     contactInfoId: "",
     addressInfoId: "",
@@ -19,31 +20,29 @@ export default function DemandCreate() {
   });
 
   const [errors, setErrors] = useState([]);
-  const [sellers, setSellers] = useState([]);
+  const [buyers, setBuyers] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [addresses, setAddresses] = useState([]);
   const [products, setProducts] = useState([]);
-
   const user = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const resUsers = await getAllUsers();
-        const filtered = resUsers.data.filter((u) => u.role === "Seller");
-        setSellers(filtered);
+        const usersRes = await getAllUsers();
+        setBuyers(usersRes.data.filter((u) => u.role === "Buyer"));
 
-        const resProfile = await getUserProfile(user.userId);
-        if (resProfile.data.state) {
-          setContacts(resProfile.data.model.contactInfoList || []);
-          setAddresses(resProfile.data.model.addressInfoList || []);
+        const profileRes = await getUserProfile(user.userId);
+        if (profileRes.data.state) {
+          setContacts(profileRes.data.model.contactInfoList || []);
+          setAddresses(profileRes.data.model.addressInfoList || []);
         } else {
           toast.error("Profil bilgileri alınamadı");
         }
 
-        const resProducts = await getAllProducts();
-        setProducts(resProducts.data.model || []);
-      } catch (err) {
+        const productsRes = await getAllProducts();
+        setProducts(productsRes.data.model || []);
+      } catch {
         toast.error("Veriler alınamadı");
       }
     };
@@ -53,22 +52,26 @@ export default function DemandCreate() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    const numericFields = ["contactInfoId", "addressInfoId", "productId"];
-    setForm({
-      ...form,
-      [name]: numericFields.includes(name) ? parseInt(value) : value,
-    });
+    const parsedValue = [
+      "contactInfoId",
+      "addressInfoId",
+      "productId",
+    ].includes(name)
+      ? parseInt(value)
+      : value;
+
+    setForm({ ...form, [name]: parsedValue });
   };
 
   const validateForm = () => {
     const missing = [];
 
+    if (!form.recipientUserId) missing.push("Alıcı");
     if (!form.demanded) missing.push("İstenen miktar");
-    if (!form.currency) missing.push("Para birimi");
-    if (!form.delivererUserId) missing.push("Satıcı");
-    if (!form.contactInfoId) missing.push("İletişim bilgisi");
-    if (!form.addressInfoId) missing.push("Adres");
+    if (!form.price) missing.push("Fiyat");
     if (!form.productId) missing.push("Ürün");
+    if (!form.contactInfoId) missing.push("İletişim");
+    if (!form.addressInfoId) missing.push("Adres");
     if (!form.date) missing.push("Tarih");
 
     setErrors(missing);
@@ -79,22 +82,18 @@ export default function DemandCreate() {
     if (!validateForm()) return;
 
     const payload = {
-      demanded: parseFloat(form.demanded),
-      delivererUserId: form.delivererUserId,
-      recipientUserId: user.userId,
-      currency: form.currency,
-      contactInfoId: form.contactInfoId,
-      addressInfoId: form.addressInfoId,
-      productId: form.productId,
-      date: new Date(form.date),
+      ...form,
+      delivererUserId: user.userId,
+      state: "Alıcı Onayladı", // Manuel olarak bu state atanıyor
     };
 
     try {
-      await createDemand(payload);
-      toast.success("Talep oluşturuldu");
+      await createManualDemand(payload);
+      toast.success("Talep başarıyla oluşturuldu");
       setForm({
+        recipientUserId: "",
         demanded: "",
-        delivererUserId: "",
+        price: "",
         currency: "₺",
         contactInfoId: "",
         addressInfoId: "",
@@ -102,7 +101,7 @@ export default function DemandCreate() {
         date: new Date().toISOString().split("T")[0],
       });
       setErrors([]);
-    } catch (err) {
+    } catch {
       toast.error("Talep oluşturulamadı");
     }
   };
@@ -111,13 +110,13 @@ export default function DemandCreate() {
     `input w-full ${errors.includes(field) ? "border-red-500" : ""}`;
 
   return (
-    <div className="max-w-md mx-auto mt-10 bg-white p-6 rounded shadow space-y-4">
-      <h2 className="text-2xl font-bold text-blue-600 mb-2">
-        🧾 Talep Oluştur
+    <div className="max-w-lg mx-auto bg-white p-6 rounded shadow mt-6 space-y-4">
+      <h2 className="text-xl font-bold text-blue-600">
+        ✍️ Manuel Talep Oluştur
       </h2>
 
       {errors.length > 0 && (
-        <div className="bg-red-100 text-red-700 border border-red-300 p-3 rounded text-sm mb-4">
+        <div className="bg-red-100 text-red-700 border border-red-300 p-3 rounded text-sm">
           <strong>Eksik Alanlar:</strong>
           <ul className="list-disc list-inside">
             {errors.map((err, i) => (
@@ -134,7 +133,7 @@ export default function DemandCreate() {
         type="date"
         className={inputClass("Tarih")}
       />
-      
+
       <input
         name="demanded"
         value={form.demanded}
@@ -157,17 +156,24 @@ export default function DemandCreate() {
           </option>
         ))}
       </select>
-
-      <select
-        name="delivererUserId"
-        value={form.delivererUserId}
+      <input
+        name="price"
+        value={form.price}
         onChange={handleChange}
-        className={inputClass("Satıcı")}
+        placeholder="Fiyat"
+        type="number"
+        className={inputClass("Fiyat")}
+      />
+      <select
+        name="recipientUserId"
+        value={form.recipientUserId}
+        onChange={handleChange}
+        className={inputClass("Alıcı")}
       >
-        <option value="">Satıcı Seçin</option>
-        {sellers.map((s) => (
-          <option key={s.userId} value={s.userId}>
-            {s.userName}
+        <option value="">Alıcı Seç</option>
+        {buyers.map((b) => (
+          <option key={b.userId} value={b.userId}>
+            {b.userName}
           </option>
         ))}
       </select>
@@ -176,7 +182,7 @@ export default function DemandCreate() {
         name="contactInfoId"
         value={form.contactInfoId}
         onChange={handleChange}
-        className={inputClass("İletişim bilgisi")}
+        className={inputClass("İletişim")}
       >
         <option value="">İletişim Bilgisi Seçin</option>
         {contacts.map((c) => (
@@ -202,9 +208,9 @@ export default function DemandCreate() {
 
       <button
         onClick={handleSubmit}
-        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 w-full"
+        className="btn-blue w-full py-2 font-semibold"
       >
-        Talep Oluştur
+        Manuel Talep Oluştur
       </button>
     </div>
   );

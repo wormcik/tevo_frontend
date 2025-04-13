@@ -18,7 +18,9 @@ import DemandHistory from "./pages/DemandHistory";
 import DemandAll from "./pages/DemandAll";
 import DemandSatisfy from "./pages/DemandSatisfy";
 import Profile from "./pages/Profile";
-import Graph from "./pages/Graph";
+import Product from "./pages/Product";
+import StatisticsDashboard from "./pages/statics/StatisticsDashboard";
+import ManuelDemandCreate from "./pages/ManuelDemandCreate";
 
 function App() {
   const [authInfo, setAuthInfo] = useState(null);
@@ -108,6 +110,16 @@ function App() {
             }
           />
           <Route
+            path="/manuelTalepOlustur"
+            element={
+              hasAccess(["Admin", "Seller"]) ? (
+                <ManuelDemandCreate />
+              ) : (
+                <Navigate to="/menu" />
+              )
+            }
+          />
+          <Route
             path="/tumTalepler"
             element={
               hasAccess(["Admin", "Seller"]) ? (
@@ -127,11 +139,21 @@ function App() {
               )
             }
           />
-          <Route
-            path="/graph"
+           <Route
+            path="/product"
             element={
               hasAccess(["Admin", "Seller"]) ? (
-                <Graph />
+                <Product />
+              ) : (
+                <Navigate to="/menu" />
+              )
+            }
+          />
+          <Route
+            path="/statics"
+            element={
+              hasAccess(["Admin", "Seller"]) ? (
+                <StatisticsDashboard />
               ) : (
                 <Navigate to="/menu" />
               )

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDemandsForSeller } from "./Main.crud";
+import { getAllProducts, getDemandsForSeller } from "./Main.crud";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -14,6 +14,8 @@ export default function DemandAll() {
   const [dateFilter, setDateFilter] = useState("");
   const [customDate, setCustomDate] = useState("");
   const [expanded, setExpanded] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [selectedProductId, setSelectedProductId] = useState("");
 
   const stateOptions = [
     "Talep Oluşturuldu",
@@ -71,7 +73,7 @@ export default function DemandAll() {
           new Date(`${dateFilter}-12-31T23:59:59`),
         ];
       default:
-        return [null, null]; // Tüm tarihler
+        return [null, null];
     }
   };
 
@@ -92,6 +94,8 @@ export default function DemandAll() {
       try {
         const res = await getDemandsForSeller(user.userId);
         setDemands(res.data.model || []);
+        const resProducts = await getAllProducts();
+        setProducts(resProducts.data.model || []);
       } catch {
         toast.error("Talepler alınamadı");
       }
@@ -109,9 +113,11 @@ export default function DemandAll() {
     const matchBuyer = selectedBuyer
       ? d.recipientUserName === selectedBuyer
       : true;
+    const matchProduct = selectedProductId
+      ? d.productId === parseInt(selectedProductId)
+      : true;
 
     let matchDate = true;
-
     if (customDate) {
       const custom = new Date(customDate);
       matchDate =
@@ -122,22 +128,23 @@ export default function DemandAll() {
       matchDate = date >= rangeStart && date <= rangeEnd;
     }
 
-    return matchState && matchBuyer && matchDate;
+    return matchState && matchBuyer && matchDate && matchProduct;
   });
 
   const totals = {
     total: filtered.length,
-    demanded: filtered.reduce((sum, d) => sum + d.demandedMilk, 0),
-    delivered: filtered.reduce((sum, d) => sum + (d.deliveredMilk || 0), 0),
+    demanded: filtered.reduce((sum, d) => sum + d.demanded, 0),
+    delivered: filtered.reduce((sum, d) => sum + (d.delivered || 0), 0),
     amount: filtered.reduce((sum, d) => sum + (d.price || 0), 0),
   };
 
   const exportToExcel = () => {
     const data = filtered.map((d) => ({
       Tarih: new Date(d.date).toLocaleDateString(),
+      Ürün: products.find((p) => p.productId === d.productId)?.productName,
       Alıcı: d.recipientUserName,
-      "İstenen (L)": d.demandedMilk,
-      "Teslim (L)": d.deliveredMilk,
+      İstenen: d.demanded,
+      Teslim: d.delivered,
       Fiyat: `${d.price} ${d.currency}`,
       Durum: d.state,
       Telefon: d.contactInfoModel?.value,
@@ -161,18 +168,22 @@ export default function DemandAll() {
     doc.text("Talepler Dökümü", 14, 15);
 
     // Tablo verileri
-    const body = filtered.map((d) => [
-      new Date(d.date).toLocaleDateString("tr-TR"),
-      d.recipientUserName,
-      d.deliveredMilk,
-      `${d.price} ${d.currency}`,
-      d.state,
-      d.addressInfoModel?.value || "-",
-    ]);
+    const body = filtered.map((d) => {
+      const product = products.find((p) => p.productId === d.productId);
+      return [
+        new Date(d.date).toLocaleDateString("tr-TR"),
+        d.recipientUserName,
+        product ? `${product.productName} (${product.unit})` : "-",
+        d.delivered,
+        `${d.price} ${d.currency}`,
+        d.state,
+        d.addressInfoModel?.value || "-",
+      ];
+    });
 
     // Tabloyu çiz
     autoTable(doc, {
-      head: [["Tarih", "Alıcı", "Teslim", "Fiyat", "Durum", "Adres"]],
+      head: [["Tarih", "Alıcı", "Ürün", "Teslim", "Fiyat", "Durum", "Adres"]],
       body: body,
       margin: { top: 25 },
       styles: {
@@ -217,6 +228,19 @@ export default function DemandAll() {
 
       {/* Filtreler */}
       <div className="grid sm:grid-cols-4 gap-4 items-center">
+        <select
+          value={selectedProductId}
+          onChange={(e) => setSelectedProductId(e.target.value)}
+          className="input"
+        >
+          <option value="">Tüm Ürünler</option>
+          {products.map((p) => (
+            <option key={p.productId} value={p.productId}>
+              {p.productName} ({p.unit})
+            </option>
+          ))}
+        </select>
+
         <select
           value={selectedState}
           onChange={(e) => setSelectedState(e.target.value)}
@@ -280,6 +304,20 @@ export default function DemandAll() {
                 <p className="font-semibold text-blue-700">
                   #{i + 1} - {d.recipientUserName}
                 </p>
+                <p className="text-sm text-gray-600">
+                  Ürün:{" "}
+                  <span className="font-medium">
+                    {
+                      products.find((p) => p.productId === d.productId)
+                        ?.productName
+                    }
+                  </span>{" "}
+                  (
+                  <span className="italic text-gray-500">
+                    {products.find((p) => p.productId === d.productId)?.unit}
+                  </span>
+                  )
+                </p>
                 <p className="text-sm text-gray-500">
                   {d.state} - {new Date(d.date).toLocaleDateString()}
                 </p>
@@ -294,10 +332,10 @@ export default function DemandAll() {
             {expanded === i && (
               <div className="mt-3 text-sm space-y-1 text-gray-700">
                 <p>
-                  <strong>İstenen:</strong> {d.demandedMilk} L
+                  <strong>İstenen:</strong> {d.demanded} L
                 </p>
                 <p>
-                  <strong>Teslim:</strong> {d.deliveredMilk || "-"} L
+                  <strong>Teslim:</strong> {d.delivered || "-"} L
                 </p>
                 <p>
                   <strong>Fiyat:</strong> {d.price} {d.currency}
