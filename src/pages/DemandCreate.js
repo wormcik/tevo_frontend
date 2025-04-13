@@ -9,6 +9,7 @@ export default function DemandCreate() {
     currency: "₺",
     contactInfoId: "",
     addressInfoId: "",
+    date: "", // Yeni eklendi
   });
 
   const [errors, setErrors] = useState([]);
@@ -57,15 +58,14 @@ export default function DemandCreate() {
     if (!form.delivererUserId) missing.push("Satıcı");
     if (!form.contactInfoId) missing.push("İletişim bilgisi");
     if (!form.addressInfoId) missing.push("Adres");
+    if (!form.date) missing.push("Tarih"); // Eklendi
 
     setErrors(missing);
     return missing.length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     const payload = {
       demandedMilk: parseFloat(form.demandedMilk),
@@ -74,6 +74,7 @@ export default function DemandCreate() {
       currency: form.currency,
       contactInfoId: parseInt(form.contactInfoId),
       addressInfoId: parseInt(form.addressInfoId),
+      date: new Date(form.date), // Eklendi
     };
 
     try {
@@ -85,6 +86,7 @@ export default function DemandCreate() {
         currency: "₺",
         contactInfoId: "",
         addressInfoId: "",
+        date: "",
       });
       setErrors([]);
     } catch (err) {
@@ -97,9 +99,7 @@ export default function DemandCreate() {
 
   return (
     <div className="max-w-md mx-auto mt-10 bg-white p-6 rounded shadow space-y-4">
-      <h2 className="text-2xl font-bold text-blue-600 mb-2">
-        🧾 Süt Talebi Oluştur
-      </h2>
+      <h2 className="text-2xl font-bold text-blue-600 mb-2">🧾 Süt Talebi Oluştur</h2>
 
       {errors.length > 0 && (
         <div className="bg-red-100 text-red-700 border border-red-300 p-3 rounded text-sm mb-4">
@@ -121,8 +121,17 @@ export default function DemandCreate() {
         className={inputClass("İstenen süt miktarı")}
       />
 
+      <input
+        name="date"
+        value={form.date}
+        onChange={handleChange}
+        type="date"
+        className={inputClass("Tarih")}
+      />
+
       <select
         name="currency"
+        disabled
         value={form.currency}
         onChange={handleChange}
         className={inputClass("Para birimi")}

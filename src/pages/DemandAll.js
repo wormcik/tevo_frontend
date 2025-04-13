@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import { getDemandsForSeller } from "./Main.crud";
 import toast from "react-hot-toast";
-import MapView from "./MapView";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { registerFonts } from "./fonts";
 
 export default function DemandAll() {
   const user = JSON.parse(localStorage.getItem("user"));
   const [demands, setDemands] = useState([]);
   const [selectedState, setSelectedState] = useState("");
   const [selectedBuyer, setSelectedBuyer] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [customDate, setCustomDate] = useState("");
   const [expanded, setExpanded] = useState(null);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
 
   const stateOptions = [
     "Talep Oluşturuldu",
@@ -24,8 +24,71 @@ export default function DemandAll() {
     "İptal Edildi",
   ];
 
+  const dateOptions = [
+    "Tüm Tarihler",
+    "Bugün",
+    "Bu Hafta",
+    "Bu Ay",
+    "Bu Yıl",
+    "1 Hafta İçinde",
+    "1 Ay İçinde",
+    "2024",
+    "2023",
+    "2022",
+  ];
+
+  const getFilteredDateRange = () => {
+    const start = new Date();
+    const end = new Date();
+    switch (dateFilter) {
+      case "Bugün":
+        return [setMidnight(start), setEndOfDay(end)];
+      case "Bu Hafta":
+        const day = start.getDay() || 7;
+        start.setDate(start.getDate() - day + 1);
+        return [setMidnight(start), setEndOfDay(end)];
+      case "Bu Ay":
+        start.setDate(1);
+        return [setMidnight(start), setEndOfDay(end)];
+      case "Bu Yıl":
+        start.setMonth(0, 1);
+        return [setMidnight(start), setEndOfDay(end)];
+      case "1 Hafta İçinde":
+        const weekFutureEnd = new Date();
+        weekFutureEnd.setDate(start.getDate() + 6);
+        return [setMidnight(start), setEndOfDay(weekFutureEnd)];
+
+      case "1 Ay İçinde":
+        const monthFutureEnd = new Date();
+        monthFutureEnd.setDate(start.getDate() + 29);
+        return [setMidnight(start), setEndOfDay(monthFutureEnd)];
+
+      case "2024":
+      case "2023":
+      case "2022":
+        return [
+          new Date(`${dateFilter}-01-01`),
+          new Date(`${dateFilter}-12-31T23:59:59`),
+        ];
+      default:
+        return [null, null]; // Tüm tarihler
+    }
+  };
+
+  const setMidnight = (date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  const setEndOfDay = (date) => {
+    const d = new Date(date);
+    d.setHours(23, 59, 59, 999);
+    return d;
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDemands = async () => {
       try {
         const res = await getDemandsForSeller(user.userId);
         setDemands(res.data.model || []);
@@ -33,27 +96,45 @@ export default function DemandAll() {
         toast.error("Talepler alınamadı");
       }
     };
-
-    fetchData();
+    fetchDemands();
   }, []);
 
   const uniqueBuyers = [...new Set(demands.map((d) => d.recipientUserName))];
 
+  const [rangeStart, rangeEnd] = getFilteredDateRange();
   const filtered = demands.filter((d) => {
+    const date = new Date(d.date);
+    const demandDateStr = date.toISOString().split("T")[0];
     const matchState = selectedState ? d.state === selectedState : true;
     const matchBuyer = selectedBuyer
       ? d.recipientUserName === selectedBuyer
       : true;
-    const matchStart = startDate
-      ? new Date(d.date) >= new Date(startDate)
-      : true;
-    const matchEnd = endDate ? new Date(d.date) <= new Date(endDate) : true;
-    return matchState && matchBuyer && matchStart && matchEnd;
+
+    let matchDate = true;
+
+    if (customDate) {
+      const custom = new Date(customDate);
+      matchDate =
+        date.getFullYear() === custom.getFullYear() &&
+        date.getMonth() === custom.getMonth() &&
+        date.getDate() === custom.getDate();
+    } else if (rangeStart && rangeEnd) {
+      matchDate = date >= rangeStart && date <= rangeEnd;
+    }
+
+    return matchState && matchBuyer && matchDate;
   });
 
+  const totals = {
+    total: filtered.length,
+    demanded: filtered.reduce((sum, d) => sum + d.demandedMilk, 0),
+    delivered: filtered.reduce((sum, d) => sum + (d.deliveredMilk || 0), 0),
+    amount: filtered.reduce((sum, d) => sum + (d.price || 0), 0),
+  };
+
   const exportToExcel = () => {
-    const sheetData = filtered.map((d) => ({
-      Tarih: d.date,
+    const data = filtered.map((d) => ({
+      Tarih: new Date(d.date).toLocaleDateString(),
       Alıcı: d.recipientUserName,
       "İstenen (L)": d.demandedMilk,
       "Teslim (L)": d.deliveredMilk,
@@ -62,39 +143,80 @@ export default function DemandAll() {
       Telefon: d.contactInfoModel?.value,
       Adres: d.addressInfoModel?.value,
     }));
-    const worksheet = XLSX.utils.json_to_sheet(sheetData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Talepler");
-    XLSX.writeFile(workbook, "talepler.xlsx");
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Talepler");
+    XLSX.writeFile(wb, "talepler.xlsx");
   };
 
   const exportToPDF = () => {
     const doc = new jsPDF();
-    doc.text("Talepler", 14, 10);
-    const tableData = filtered.map((d) => [
-      d.date,
+
+    // Türkçe destekli fontu kaydet ve seç
+    registerFonts(doc);
+    doc.setFont("DejaVuSans", "normal");
+
+    // Başlık
+    doc.setFontSize(14);
+    doc.text("Talepler Dökümü", 14, 15);
+
+    // Tablo verileri
+    const body = filtered.map((d) => [
+      new Date(d.date).toLocaleDateString("tr-TR"),
       d.recipientUserName,
-      d.demandedMilk,
       d.deliveredMilk,
       `${d.price} ${d.currency}`,
       d.state,
+      d.addressInfoModel?.value || "-",
     ]);
+
+    // Tabloyu çiz
     autoTable(doc, {
-      head: [["Tarih", "Alıcı", "İstenen", "Teslim", "Fiyat", "Durum"]],
-      body: tableData,
+      head: [["Tarih", "Alıcı", "Teslim", "Fiyat", "Durum", "Adres"]],
+      body: body,
+      margin: { top: 25 },
+      styles: {
+        font: "DejaVuSans",
+      },
     });
 
+    // Alt bilgiler
+    const finalY = doc.lastAutoTable.finalY || 30;
+    doc.setFontSize(12);
+    doc.text(`Toplam Talep: ${totals.total}`, 14, finalY + 10);
+    doc.text(`Toplam Teslim: ${totals.delivered} Litre`, 14, finalY + 16);
+    doc.text(`Toplam Tutar: ${totals.amount} ₺`, 14, finalY + 22);
+
+    // PDF'i indir
     doc.save("talepler.pdf");
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-6">
-      <h2 className="text-xl font-bold text-blue-600">
-        📦 Tüm Talepler (Geçmiş)
-      </h2>
+    <div className="max-w-6xl mx-auto p-4 space-y-6">
+      <h2 className="text-2xl font-bold text-blue-600">📦 Tüm Talepler</h2>
+
+      {/* Özet Bilgiler */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded shadow text-center">
+          <p className="font-bold text-lg">{totals.total}</p>
+          <p className="text-sm text-gray-500">Toplam Talep</p>
+        </div>
+        <div className="bg-white p-4 rounded shadow text-center">
+          <p className="font-bold text-lg">{totals.demanded} L</p>
+          <p className="text-sm text-gray-500">İstenen</p>
+        </div>
+        <div className="bg-white p-4 rounded shadow text-center">
+          <p className="font-bold text-lg">{totals.delivered} L</p>
+          <p className="text-sm text-gray-500">Teslim</p>
+        </div>
+        <div className="bg-white p-4 rounded shadow text-center">
+          <p className="font-bold text-lg">{totals.amount} ₺</p>
+          <p className="text-sm text-gray-500">Tutar</p>
+        </div>
+      </div>
 
       {/* Filtreler */}
-      <div className="grid sm:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-4 gap-4 items-center">
         <select
           value={selectedState}
           onChange={(e) => setSelectedState(e.target.value)}
@@ -102,9 +224,7 @@ export default function DemandAll() {
         >
           <option value="">Tüm Durumlar</option>
           {stateOptions.map((s, i) => (
-            <option key={i} value={s}>
-              {s}
-            </option>
+            <option key={i}>{s}</option>
           ))}
         </select>
         <select
@@ -114,29 +234,35 @@ export default function DemandAll() {
         >
           <option value="">Tüm Alıcılar</option>
           {uniqueBuyers.map((b, i) => (
-            <option key={i} value={b}>
-              {b}
-            </option>
+            <option key={i}>{b}</option>
           ))}
         </select>
-        <div className="flex gap-2">
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="input"
-          />
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="input"
-          />
-        </div>
+        <select
+          value={dateFilter}
+          onChange={(e) => {
+            setDateFilter(e.target.value);
+            setCustomDate("");
+          }}
+          className="input"
+        >
+          {dateOptions.map((d, i) => (
+            <option key={i}>{d}</option>
+          ))}
+        </select>
+        <input
+          type="date"
+          value={customDate}
+          onChange={(e) => {
+            setCustomDate(e.target.value);
+            setDateFilter("");
+          }}
+          className="input"
+          placeholder="Tarih seç"
+        />
       </div>
 
       {/* Dışa Aktarım */}
-      <div className="flex gap-3 justify-end">
+      <div className="flex justify-end gap-2">
         <button onClick={exportToExcel} className="btn-green">
           📊 Excel
         </button>
@@ -146,82 +272,47 @@ export default function DemandAll() {
       </div>
 
       {/* Liste */}
-      {filtered.map((d, i) => (
-        <div key={d.demandId} className="border rounded p-4 shadow bg-white">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="font-semibold text-blue-700">
-                #{i + 1} - {d.recipientUserName}
-              </p>
-              <p className="text-sm text-gray-500">
-                {d.state} - {new Date(d.date).toLocaleDateString()}
-              </p>
+      <div className="space-y-4">
+        {filtered.map((d, i) => (
+          <div key={d.demandId} className="bg-white border rounded shadow p-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-semibold text-blue-700">
+                  #{i + 1} - {d.recipientUserName}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {d.state} - {new Date(d.date).toLocaleDateString()}
+                </p>
+              </div>
+              <button
+                onClick={() => setExpanded(expanded === i ? null : i)}
+                className="text-blue-600 text-sm underline"
+              >
+                {expanded === i ? "Gizle" : "Detay"}
+              </button>
             </div>
-            <button
-              onClick={() => setExpanded(expanded === i ? null : i)}
-              className="text-sm text-blue-600 underline"
-            >
-              {expanded === i ? "Gizle" : "Detay"}
-            </button>
+            {expanded === i && (
+              <div className="mt-3 text-sm space-y-1 text-gray-700">
+                <p>
+                  <strong>İstenen:</strong> {d.demandedMilk} L
+                </p>
+                <p>
+                  <strong>Teslim:</strong> {d.deliveredMilk || "-"} L
+                </p>
+                <p>
+                  <strong>Fiyat:</strong> {d.price} {d.currency}
+                </p>
+                <p>
+                  <strong>📞 Tel:</strong> {d.contactInfoModel?.value}
+                </p>
+                <p>
+                  <strong>📍 Adres:</strong> {d.addressInfoModel?.value}
+                </p>
+              </div>
+            )}
           </div>
-
-          {expanded === i && (
-            <div className="mt-3 space-y-2 text-sm text-gray-700">
-              <p>
-                <strong>İstenen:</strong> {d.demandedMilk} L
-              </p>
-              <p>
-                <strong>Teslim:</strong> {d.deliveredMilk || "-"} L
-              </p>
-              <p>
-                <strong>Fiyat:</strong> {d.price} {d.currency}
-              </p>
-              {/* Alıcı İletişimi */}
-              <p>
-                <strong>📞 Alıcı:</strong>{" "}
-                <a
-                  href={`tel:${d.contactInfoModel?.value}`}
-                  className="text-blue-600 hover:underline"
-                >
-                  {d.contactInfoModel?.value}
-                </a>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      d.contactInfoModel?.value || ""
-                    );
-                    toast.success("Alıcı numarası kopyalandı");
-                  }}
-                  className="ml-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300"
-                >
-                  Kopyala
-                </button>
-              </p>
-
-              {/* Adres */}
-              <p>
-                <strong>📍 Adres:</strong> {d.addressInfoModel?.value}
-              </p>
-
-              <MapView
-                lat={d.addressInfoModel?.latitude}
-                lng={d.addressInfoModel?.longitude}
-              />
-              {d.addressInfoModel?.latitude &&
-                d.addressInfoModel?.longitude && (
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${d.addressInfoModel.latitude},${d.addressInfoModel.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block text-blue-600 hover:underline"
-                  >
-                    📍 Yol Tarifi
-                  </a>
-                )}
-            </div>
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
