@@ -8,6 +8,8 @@ export default function Navbar() {
 
   const isHomeOrMenu = currentPath === "/" || currentPath === "/menu";
 
+  const user = JSON.parse(localStorage.getItem("user"));
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     navigate("/giris");
@@ -30,15 +32,19 @@ export default function Navbar() {
         )}
       </div>
 
-      {/* Sağ: Profil + Çıkış */}
+      {/* Sağ: Profil + Kullanıcı Adı + Çıkış */}
       <div className="flex gap-4 items-center ml-auto">
         <Link
           to="/profile"
           title="Profilim"
-          className="text-blue-600 hover:text-blue-800 transition"
+          className="flex items-center text-blue-600 hover:text-blue-800 transition gap-1"
         >
           <UserCircle size={22} />
+          <span className="hidden sm:inline text-sm font-medium">
+            {user?.userName}
+          </span>
         </Link>
+
         <button
           onClick={handleLogout}
           title="Çıkış Yap"
