@@ -39,6 +39,7 @@ export const checkUserAuth = (userId) =>
 export const getAllUsers = () => axios.get(`${API_BASE_USER}/GetAll`);
 export const getAllBuyerUsers = () => axios.get(`${API_BASE_USER}/GetAllBuyer`);
 export const banUser = (data) => axios.post(`${API_BASE_USER}/Ban`, data);
+export const deleteUser = (id) => axios.delete(`${API_BASE_USER}/delete/${id}`);
 
 // 🔹 Buyer
 export const createDemand = (payload) =>

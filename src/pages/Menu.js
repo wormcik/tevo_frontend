@@ -15,7 +15,11 @@ export default function Menu(props) {
   }, []);
 
   const buttons = [
-    { title: "👥 Müşteriler", route: "/musteri", roles: ["Admin", "Seller"] },
+    {
+      title: "👥 Müşteri Yönetimi",
+      route: "/musteri",
+      roles: ["Admin", "Seller"],
+    },
     {
       title: "🧾 Talep Oluştur",
       route: "/talepOlustur",
