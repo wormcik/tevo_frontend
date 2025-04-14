@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import Select from "react-select";
 import {
   createManualDemand,
-  getAllUsers,
-  getUserProfile,
+  getAllBuyerUsers,
   getAllProducts,
+  getUserProfile,
 } from "./Main.crud";
-import toast from "react-hot-toast";
 
 export default function ManuelDemandCreate() {
   const [form, setForm] = useState({
@@ -25,13 +26,20 @@ export default function ManuelDemandCreate() {
   const [addresses, setAddresses] = useState([]);
   const [products, setProducts] = useState([]);
   const user = JSON.parse(localStorage.getItem("user"));
-
+  const [buyerOptions, setBuyerOptions] = useState([]);
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const usersRes = await getAllUsers();
-        setBuyers(usersRes.data.filter((u) => u.role === "Buyer"));
-
+        const usersRes = await getAllBuyerUsers();
+        const buyerList = usersRes.data.filter((u) => u.role === "Buyer");
+        setBuyers(buyerList);
+        const options = buyerList.map((b) => ({
+          value: b.userId,
+          label: b.userName,
+          contactInfoList: b.contactInfoList,
+          addressInfoList: b.addressInfoList,
+        }));
+        setBuyerOptions(options);
         const profileRes = await getUserProfile(user.userId);
         if (profileRes.data.state) {
           setContacts(profileRes.data.model.contactInfoList || []);
@@ -164,24 +172,28 @@ export default function ManuelDemandCreate() {
         type="number"
         className={inputClass("Fiyat")}
       />
-      <select
+      <Select
         name="recipientUserId"
-        value={form.recipientUserId}
-        onChange={handleChange}
-        className={inputClass("Alıcı")}
-      >
-        <option value="">Alıcı Seç</option>
-        {buyers.map((b) => (
-          <option key={b.userId} value={b.userId}>
-            {b.userName}
-          </option>
-        ))}
-      </select>
+        options={buyerOptions}
+        onChange={(selectedOption) => {
+          handleChange({
+            target: { name: "recipientUserId", value: selectedOption?.value },
+          });
+          debugger;
+          setContacts(buyerOptions.find((opt) => opt.value === selectedOption?.value)?.contactInfoList || []);
+          setAddresses(buyerOptions.find((opt) => opt.value === selectedOption?.value)?.addressInfoList || []);
+        }}
+        value={buyerOptions.find((opt) => opt.value === form.recipientUserId)}
+        placeholder="Alıcı Seç"
+        className="my-2"
+        isClearable
+      />
 
       <select
         name="contactInfoId"
         value={form.contactInfoId}
         onChange={handleChange}
+        disabled={!form.recipientUserId}
         className={inputClass("İletişim")}
       >
         <option value="">İletişim Bilgisi Seçin</option>
@@ -196,6 +208,7 @@ export default function ManuelDemandCreate() {
         name="addressInfoId"
         value={form.addressInfoId}
         onChange={handleChange}
+        disabled={!form.recipientUserId}
         className={inputClass("Adres")}
       >
         <option value="">Adres Seçin</option>
