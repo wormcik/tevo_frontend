@@ -1,12 +1,19 @@
-import { useState } from "react";
-import toast from "react-hot-toast";
-import { logInUser, signInUser } from "./Main.crud";
-import { useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import "leaflet-control-geocoder";
+import "leaflet-control-geocoder/dist/Control.Geocoder.css";
+import "leaflet/dist/leaflet.css";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import {
+  MapContainer,
+  Marker,
+  TileLayer,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
+import { useNavigate } from "react-router-dom";
+import { logInUser, signInUser } from "./Main.crud";
 
-// Leaflet marker fix (ikonu düzgün göstermesi için)
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -59,6 +66,7 @@ export default function LogSignIn() {
         return toast.error("Adres açıklaması ve konumu zorunlu");
       }
     }
+
     try {
       let payload;
 
@@ -95,28 +103,93 @@ export default function LogSignIn() {
     }
   };
 
-  const LocationMarker = () => {
-    useMapEvents({
-      click(e) {
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Tarayıcınız konum almayı desteklemiyor.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
         setForm((prev) => ({
           ...prev,
           address: {
             ...prev.address,
-            latitude: e.latlng.lat.toString(),
-            longitude: e.latlng.lng.toString(),
+            latitude: latitude.toString(),
+            longitude: longitude.toString(),
+            value:""
           },
         }));
+        toast.success("Konum alındı!");
+      },
+      (error) => {
+        toast.error("Konum alınamadı: " + error.message);
+      }
+    );
+  };
+
+  const LocationMarker = () => {
+    const map = useMapEvents({
+      click(e) {
+        const newLat = e.latlng.lat.toString();
+        const newLng = e.latlng.lng.toString();
+  
+        setForm((prev) => ({
+          ...prev,
+          address: {
+            ...prev.address,
+            latitude: newLat,
+            longitude: newLng,
+            value: "", // elle seçince açıklama sıfırlanır
+          },
+        }));
+  
+        map.flyTo([e.latlng.lat, e.latlng.lng], 13);
       },
     });
-
-    return form.address.latitude && form.address.longitude ? (
-      <Marker
-        position={[
-          parseFloat(form.address.latitude),
-          parseFloat(form.address.longitude),
-        ]}
-      />
+  
+    const { latitude, longitude } = form.address;
+  
+    return latitude && longitude ? (
+      <Marker position={[parseFloat(latitude), parseFloat(longitude)]} />
     ) : null;
+  };
+  
+  
+
+  const GeocoderControl = ({ setForm }) => {
+    const map = useMap();
+
+    useEffect(() => {
+      const geocoder = L.Control.Geocoder.nominatim();
+
+      const control = L.Control.geocoder({
+        defaultMarkGeocode: true,
+        geocoder,
+      })
+        .on("markgeocode", function (e) {
+          const { center, name } = e.geocode;
+          map.setView(center, 13);
+
+          setForm((prev) => ({
+            ...prev,
+            address: {
+              ...prev.address,
+              latitude: center.lat.toString(),
+              longitude: center.lng.toString(),
+              value: name,
+            },
+          }));
+        })
+        .addTo(map);
+
+      return () => {
+        map.removeControl(control);
+      };
+    }, [map, setForm]);
+
+    return null;
   };
 
   return (
@@ -173,14 +246,30 @@ export default function LogSignIn() {
                 <label className="text-sm text-gray-600">
                   📍 Haritada konum seç:
                 </label>
-                <div className="h-60 mt-2 rounded overflow-hidden">
+
+                <button
+                  onClick={getCurrentLocation}
+                  className="mt-1 mb-2 text-sm text-blue-600 underline hover:text-blue-800"
+                >
+                  Şuan Bulunduğum Yeri Kullan
+                </button>
+
+                <div className="h-60 rounded overflow-hidden">
                   <MapContainer
-                    center={[39.92, 32.85]} // Default Ankara
-                    zoom={6}
+                    center={
+                      form.address.latitude && form.address.longitude
+                        ? [
+                            parseFloat(form.address.latitude),
+                            parseFloat(form.address.longitude),
+                          ]
+                        : [39.92, 32.85]
+                    }
+                    zoom={form.address.latitude ? 13 : 6}
                     style={{ height: "100%", width: "100%" }}
                   >
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                     <LocationMarker />
+                    <GeocoderControl setForm={setForm} />
                   </MapContainer>
                 </div>
               </div>

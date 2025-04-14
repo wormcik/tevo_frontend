@@ -1,13 +1,22 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { getUserProfile, updateProfile } from "./Main.crud";
-import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import {
+  MapContainer,
+  Marker,
+  TileLayer,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "leaflet-control-geocoder";
+import "leaflet-control-geocoder/dist/Control.Geocoder.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
@@ -22,19 +31,6 @@ export default function Profile() {
 
   const [editMode, setEditMode] = useState(false);
   const user = JSON.parse(localStorage.getItem("user"));
-
-  const LocationSetter = ({ index }) => {
-    useMapEvents({
-      click(e) {
-        const updated = [...form.addressInfos];
-        updated[index].latitude = e.latlng.lat.toString();
-        updated[index].longitude = e.latlng.lng.toString();
-        setForm((prev) => ({ ...prev, addressInfos: updated }));
-        toast.success("Konum seçildi");
-      },
-    });
-    return null;
-  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -92,6 +88,94 @@ export default function Profile() {
     } catch {
       toast.error("Bir hata oluştu");
     }
+  };
+
+  const LocationSetter = ({ index }) => {
+    useMapEvents({
+      click(e) {
+        const updated = [...form.addressInfos];
+        updated[index] = {
+          ...updated[index],
+          latitude: e.latlng.lat.toString(),
+          longitude: e.latlng.lng.toString(),
+          value: "", // manuel tıklamada açıklama sıfırlanır
+        };
+        setForm((prev) => ({ ...prev, addressInfos: updated }));
+        toast.success("Konum seçildi. Açıklama sıfırlandı.");
+      },
+    });
+    return null;
+  };
+
+  const GeocoderControl = ({ index }) => {
+    const map = useMap();
+
+    useEffect(() => {
+      const geocoder = L.Control.Geocoder.nominatim();
+
+      const control = L.Control.geocoder({
+        defaultMarkGeocode: true,
+        geocoder,
+      })
+        .on("markgeocode", function (e) {
+          const { center, name } = e.geocode;
+          map.setView(center, 13);
+
+          const updated = [...form.addressInfos];
+          updated[index] = {
+            ...updated[index],
+            latitude: center.lat.toString(),
+            longitude: center.lng.toString(),
+            value: name,
+          };
+          setForm((prev) => ({ ...prev, addressInfos: updated }));
+        })
+        .addTo(map);
+
+      return () => {
+        map.removeControl(control);
+      };
+    }, [map]);
+
+    return null;
+  };
+
+  const CurrentLocationButton = ({ index }) => {
+    const map = useMap();
+
+    const getCurrentLocation = () => {
+      if (!navigator.geolocation) {
+        toast.error("Tarayıcınız konum almayı desteklemiyor.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const updated = [...form.addressInfos];
+          updated[index] = {
+            ...updated[index],
+            latitude: latitude.toString(),
+            longitude: longitude.toString(),
+          };
+          setForm((prev) => ({ ...prev, addressInfos: updated }));
+          map.setView([latitude, longitude], 13);
+          toast.success("Konum alındı!");
+        },
+        (error) => {
+          toast.error("Konum alınamadı: " + error.message);
+        }
+      );
+    };
+
+    return (
+      <button
+        onClick={getCurrentLocation}
+        className="text-sm text-blue-600 underline mt-2"
+      >
+        📍 Şu Anki Konumumu Kullan
+      </button>
+    );
   };
 
   return (
@@ -195,6 +279,8 @@ export default function Profile() {
                 className="input w-1/2"
               />
             </div>
+
+
             <div className="h-40 mt-2 rounded overflow-hidden">
               <MapContainer
                 center={
@@ -202,11 +288,14 @@ export default function Profile() {
                     ? [parseFloat(a.latitude), parseFloat(a.longitude)]
                     : [39.92, 32.85]
                 }
-                zoom={6}
+                zoom={a.latitude ? 13 : 6}
                 style={{ height: "100%", width: "100%" }}
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {editMode && <LocationSetter index={idx} />}
+                {editMode && <GeocoderControl index={idx} />}
+                {editMode && <CurrentLocationButton index={idx} />}
+
                 {a.latitude && a.longitude && (
                   <Marker position={[parseFloat(a.latitude), parseFloat(a.longitude)]} />
                 )}
