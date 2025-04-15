@@ -15,6 +15,7 @@ export default function DemandSatisfy() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [products, setProducts] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState({});
 
   const stateOptions = [
     "Talep Oluşturuldu",
@@ -238,15 +239,41 @@ export default function DemandSatisfy() {
                 )}
 
                 {d.state === "Alıcı Onayladı" && (
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() =>
-                        handleAction(d.demandId, { state: "Teslim Edildi" })
+                  <div className="space-y-2 mt-2">
+                    <select
+                      className="input"
+                      value={paymentMethods[d.demandId] || ""}
+                      onChange={(e) =>
+                        setPaymentMethods((prev) => ({
+                          ...prev,
+                          [d.demandId]: e.target.value,
+                        }))
                       }
-                      className="btn-green"
                     >
-                      Teslim Et
-                    </button>
+                      <option value="">Ödeme Yöntemi Seç</option>
+                      <option value="Nakit">Nakit</option>
+                      <option value="Kart">Kart</option>
+                      <option value="Havale">Havale</option>
+                      <option value="Diğer">Diğer</option>
+                    </select>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const method = paymentMethods[d.demandId];
+                          if (!method) {
+                            toast.error("Lütfen ödeme yöntemini seçin");
+                            return;
+                          }
+                          handleAction(d.demandId, {
+                            state: "Teslim Edildi",
+                            paymentMethod: method,
+                          });
+                        }}
+                        className="btn-green"
+                      >
+                        Teslim Et
+                      </button>
+                    </div>
                   </div>
                 )}
 
